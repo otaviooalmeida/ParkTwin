@@ -2,3 +2,4 @@ tasks.md
 .pytest_cache/
 pytest.ini
 tests/__pycache__/
+src/parking/__pycache__/
