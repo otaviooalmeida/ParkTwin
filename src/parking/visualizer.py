@@ -19,14 +19,16 @@ def save_annotated_image(
     spots: list[ParkingSpot],
     detections: list[VehicleDetection],
     output_path: str | Path,
+    draw_detections: bool = False,
 ) -> Path:
     annotated_image = _load_image(image).copy()
 
     for spot in spots:
         _draw_spot(annotated_image, spot)
 
-    for detection in detections:
-        _draw_detection(annotated_image, detection)
+    if draw_detections:
+        for detection in detections:
+            _draw_detection(annotated_image, detection)
 
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)

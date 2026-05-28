@@ -20,9 +20,15 @@ def main() -> None:
         default="yolov8n.pt",
         help="Path to the YOLO model file. Default: yolov8n.pt",
     )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=None,
+        help="YOLO inference image size.",
+    )
     args = parser.parse_args()
 
-    detector = VehicleDetector(args.model)
+    detector = VehicleDetector(args.model, imgsz=args.imgsz)
     detections = detector.detect(args.image_path)
 
     print(json.dumps([asdict(detection) for detection in detections], indent=2))

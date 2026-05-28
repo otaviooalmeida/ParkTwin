@@ -7,13 +7,18 @@ VEHICLE_CLASSES = {"car", "motorcycle", "bus", "truck"}
 
 
 class VehicleDetector:
-    def __init__(self, model_path: str | Path) -> None:
+    def __init__(self, model_path: str | Path, imgsz: int | None = None) -> None:
         from ultralytics import YOLO
 
         self.model = YOLO(str(model_path))
+        self.imgsz = imgsz
 
     def detect(self, image_path: str | Path) -> list[VehicleDetection]:
-        results = self.model(str(image_path))
+        predict_kwargs = {}
+        if self.imgsz is not None:
+            predict_kwargs["imgsz"] = self.imgsz
+
+        results = self.model(str(image_path), **predict_kwargs)
         detections: list[VehicleDetection] = []
 
         for result in results:

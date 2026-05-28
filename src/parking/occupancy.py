@@ -1,15 +1,23 @@
-from parking.geometry import bbox_center, point_in_polygon
+from parking.geometry import bbox_polygon_overlap_ratio
 from parking.models import ParkingSpot, VehicleDetection
+
+
+DEFAULT_OCCUPANCY_OVERLAP_THRESHOLD = 0.3
 
 
 def assign_occupancy(
     spots: list[ParkingSpot],
     detections: list[VehicleDetection],
+    overlap_threshold: float = DEFAULT_OCCUPANCY_OVERLAP_THRESHOLD,
 ) -> list[ParkingSpot]:
     occupied_spots: list[ParkingSpot] = []
 
     for spot in spots:
-        best_detection = _find_best_detection_for_spot(spot, detections)
+        best_detection = _find_best_detection_for_spot(
+            spot,
+            detections,
+            overlap_threshold,
+        )
 
         if best_detection is None:
             occupied_spots.append(
@@ -32,11 +40,12 @@ def assign_occupancy(
 def _find_best_detection_for_spot(
     spot: ParkingSpot,
     detections: list[VehicleDetection],
+    overlap_threshold: float,
 ) -> VehicleDetection | None:
     matching_detections = [
         detection
         for detection in detections
-        if point_in_polygon(bbox_center(detection.bbox), spot.polygon)
+        if bbox_polygon_overlap_ratio(detection.bbox, spot.polygon) >= overlap_threshold
     ]
 
     if not matching_detections:

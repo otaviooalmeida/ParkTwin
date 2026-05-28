@@ -28,9 +28,21 @@ def main() -> None:
         help="Path to the YOLO model file. Default: yolo11s.pt",
     )
     parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=1280,
+        help="YOLO inference image size. Default: 1280",
+    )
+    parser.add_argument(
         "--output-dir",
         default=PROJECT_ROOT / "data" / "outputs",
         help="Directory where state and annotated image will be saved.",
+    )
+    parser.add_argument(
+        "--occupancy-threshold",
+        type=float,
+        default=0.1,
+        help="Minimum bbox area ratio inside a spot to mark it occupied. Default: 0.1",
     )
     args = parser.parse_args()
 
@@ -38,9 +50,13 @@ def main() -> None:
     output_dir = Path(args.output_dir)
 
     spots = load_parking_spots(args.spots)
-    detector = VehicleDetector(args.model)
+    detector = VehicleDetector(args.model, imgsz=args.imgsz)
     detections = detector.detect(image_path)
-    occupied_spots = assign_occupancy(spots, detections)
+    occupied_spots = assign_occupancy(
+        spots,
+        detections,
+        overlap_threshold=args.occupancy_threshold,
+    )
 
     state = build_twin_state(occupied_spots)
     state_path = output_dir / f"{image_path.stem}_state.json"
