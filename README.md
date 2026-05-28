@@ -9,13 +9,14 @@ O pipeline atual carrega uma imagem, detecta veículos com YOLO, cruza as detec�
 
 ## Exemplo Visual
 
-Imagem base:
+Imagem base
 
-![Imagem base](data/samples/baseline.jpg)
+<img width="640" height="480" alt="baseline" src="https://github.com/user-attachments/assets/bc1d7522-85d8-4895-80cd-78c350fc84f3" />
 
-Resultado anotado:
 
-![Resultado anotado](data/outputs/baseline_annotated.jpg)
+Resultado anotado
+
+<img width="640" height="480" alt="baseline_annotated" src="https://github.com/user-attachments/assets/929cc8f8-7b89-4aed-9959-a152ef4df7dd" />
 
 
 ## Como Funciona
@@ -29,6 +30,11 @@ imagem -> YOLO -> VehicleDetection -> vagas anotadas -> ocupação -> twin state
 ```
 
 A ocupação é calculada pela área de sobreposição entre a bounding box do veículo e o polígono da vaga. Por padrão, se pelo menos `10%` da área da bbox do veículo estiver dentro da vaga, a vaga é marcada como `occupied`.
+
+Exemplo de detecção
+
+<img width="640" height="480" alt="10_annotated" src="https://github.com/user-attachments/assets/ac4e3e4a-cebe-4756-ac14-8c878b6e7fd5" />
+
 
 ## Estrutura do Projeto
 
@@ -86,6 +92,8 @@ Formato do JSON:
 ```
 
 ### Anotador OpenCV
+
+Caso seu sistema seja simples e não precise de softwares específicos para anotação, é possível anotar usando o script a seguir:
 
 
 ```bash
