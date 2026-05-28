@@ -1,5 +1,10 @@
 tasks.md
 .pytest_cache/
 pytest.ini
-tests/__pycache__/
-src/parking/__pycache__/
+__pycache__/
+*.pyc
+data/outputs/
+runs/
+*.pt
+tests/
+data/
