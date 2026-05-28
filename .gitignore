@@ -1,0 +1,3 @@
+tasks.md
+.pytest_cache/
+pytest.ini
