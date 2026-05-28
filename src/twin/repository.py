@@ -18,6 +18,7 @@ class TwinRepository:
             connection.execute(
                 """
                 INSERT INTO snapshots (
+                    parking_lot_id,
                     timestamp,
                     total_spots,
                     occupied_count,
@@ -26,9 +27,10 @@ class TwinRepository:
                     occupancy_rate,
                     spots_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    state.parking_lot_id,
                     state.timestamp,
                     state.total_spots,
                     state.occupied_count,
@@ -68,6 +70,7 @@ class TwinRepository:
                 """
                 SELECT
                     timestamp,
+                    parking_lot_id,
                     total_spots,
                     occupied_count,
                     free_count,
@@ -89,6 +92,8 @@ class TwinRepository:
                 polygon=spot["polygon"],
                 status=spot["status"],
                 confidence=spot["confidence"],
+                occupied_since=spot.get("occupied_since"),
+                last_changed_at=spot.get("last_changed_at"),
             )
             for spot in json.loads(row["spots_json"])
         ]
@@ -101,6 +106,7 @@ class TwinRepository:
             free_count=row["free_count"],
             uncertain_count=row["uncertain_count"],
             occupancy_rate=row["occupancy_rate"],
+            parking_lot_id=row["parking_lot_id"],
         )
 
     def get_recent_events(self, limit: int) -> list[dict[str, Any]]:
@@ -146,6 +152,7 @@ class TwinRepository:
                 """
                 CREATE TABLE IF NOT EXISTS snapshots (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    parking_lot_id TEXT,
                     timestamp TEXT NOT NULL,
                     total_spots INTEGER NOT NULL,
                     occupied_count INTEGER NOT NULL,

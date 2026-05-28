@@ -13,6 +13,8 @@ class SpotState:
     polygon: list[Point]
     status: SpotStatus
     confidence: float | None = None
+    occupied_since: str | None = None
+    last_changed_at: str | None = None
 
 
 @dataclass
@@ -24,6 +26,7 @@ class ParkingTwinState:
     free_count: int
     uncertain_count: int
     occupancy_rate: float
+    parking_lot_id: str | None = None
 
 
 def calculate_twin_counts(spots: list[SpotState]) -> dict[str, int | float]:
