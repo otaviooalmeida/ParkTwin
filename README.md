@@ -1,8 +1,8 @@
 # ParkTwin
 
-ParkTwin é um projeto pessoal de visão computacional e digital twin para monitorar a ocupação de vagas em estacionamentos.
+ParkTwin é um projeto de visão computacional e digital twin para monitorar a ocupação de vagas em estacionamentos.
 
-O objetivo do MVP é carregar imagens de um estacionamento, usar vagas definidas por polígonos, associar veículos detectados a essas vagas e gerar um estado digital simples com vagas livres, ocupadas ou incertas.
+O objetivo é carregar imagens de um estacionamento, usar vagas definidas por polígonos, associar veículos detectados a essas vagas e gerar um estado digital simples com vagas livres, ocupadas ou incertas.
 
 ## Estrutura inicial
 
@@ -17,6 +17,3 @@ O objetivo do MVP é carregar imagens de um estacionamento, usar vagas definidas
 - `scripts`: scripts utilitários.
 - `tests`: testes automatizados.
 
-## Escopo atual
-
-Esta etapa cria apenas a estrutura inicial do projeto. A detecção com YOLO e o dashboard ainda não foram implementados.

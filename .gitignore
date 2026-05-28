@@ -1,3 +1,4 @@
 tasks.md
 .pytest_cache/
 pytest.ini
+tests/__pycache__/
