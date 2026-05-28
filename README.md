@@ -7,6 +7,8 @@ O pipeline atual carrega uma imagem, detecta veículos com YOLO, cruza as detec�
 - uma imagem anotada com cada vaga marcada como `free` ou `occupied`;
 - um arquivo JSON com o estado digital do estacionamento.
 
+O ParkTwin mantém uma representação digital persistente do estacionamento. A cada nova imagem processada, o sistema atualiza o estado de cada vaga, registra eventos de mudança, calcula a taxa de ocupação e disponibiliza essas informações em um dashboard de monitoramento.
+
 ## Exemplo Visual
 
 Imagem base
@@ -45,14 +47,14 @@ Exemplo de detecção
 │   └── outputs/              # imagens anotadas e estados JSON
 ├── scripts/
 │   ├── annotate_spots.py      # anotador com janela OpenCV
-│   ├── annotate_spots_web.py  # anotador via navegador
 │   ├── run_detection.py       # roda apenas a detecção YOLO
+│   ├── run_parktwin.py        # gerenciamento do streamlit/sqlite
 │   └── run_pipeline_image.py  # roda o pipeline completo
 ├── src/
+│   ├── dashboard/             # dashboard para visualização
 │   ├── detection/             # detector YOLO
 │   ├── parking/               # vagas, geometria, ocupação e visualização
 │   └── twin/                  # estado digital do estacionamento
-└── tests/                     # testes automatizados
 ```
 
 ## Instalação
@@ -170,4 +172,64 @@ O estado salvo em JSON tem este formato:
 }
 ```
 
+Além do JSON, o projeto também pode persistir snapshots em SQLite usando `scripts/run_parktwin.py`. Esse fluxo mantém histórico de ocupação, eventos por vaga e campos temporais como `occupied_since` e `last_changed_at`.
+
+```bash
+python3 scripts/run_parktwin.py data/samples/baseline.jpg \
+  --spots data/samples/spots_annotated.json \
+  --model yolo11s.pt
+```
+
+Isso salva:
+
+```text
+data/parktwin.db
+data/outputs/latest_annotated.jpg
+```
+
+## Dashboard
+
+O dashboard Streamlit fica em:
+
+```text
+src/dashboard/app.py
+```
+
+Para rodar:
+
+```bash
+streamlit run src/dashboard/app.py
+```
+
+Ele mostra:
+
+- métricas gerais de ocupação;
+- imagem anotada mais recente;
+- histórico de ocupação;
+- últimos eventos por vaga;
+- tabela com o estado atual de cada vaga.
+
+O dashboard lê os dados do SQLite em `data/parktwin.db`. Caso o banco ainda não exista ou esteja vazio, ele usa os arquivos `*_state.json` e `*_annotated.jpg` em `data/outputs/` como fallback.
+
+### Prints do Dashboard
+
+Visão geral
+
+```text
+TODO: inserir print da tela principal
+```
+
+Histórico de ocupação
+
+
+```text
+TODO: inserir print do histórico
+```
+
+Eventos por vaga
+
+
+```text
+TODO: inserir print dos eventos
+```
 

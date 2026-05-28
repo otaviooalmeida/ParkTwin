@@ -8,3 +8,5 @@ runs/
 *.pt
 tests/
 data/
+docs/
+src/api/
