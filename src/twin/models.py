@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Literal
-
 from parking.models import Point
 
 

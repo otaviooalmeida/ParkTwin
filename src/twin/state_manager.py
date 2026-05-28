@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-
 from parking.models import ParkingSpot
 from twin.models import ParkingTwinState, SpotState, calculate_twin_counts
 
