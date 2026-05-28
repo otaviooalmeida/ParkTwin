@@ -9,17 +9,6 @@ O pipeline atual carrega uma imagem, detecta veículos com YOLO, cruza as detec�
 
 O ParkTwin mantém uma representação digital persistente do estacionamento. A cada nova imagem processada, o sistema atualiza o estado de cada vaga, registra eventos de mudança, calcula a taxa de ocupação e disponibiliza essas informações em um dashboard de monitoramento.
 
-## Exemplo Visual
-
-Imagem base
-
-<img width="640" height="480" alt="baseline" src="https://github.com/user-attachments/assets/bc1d7522-85d8-4895-80cd-78c350fc84f3" />
-
-
-Resultado anotado
-
-<img width="640" height="480" alt="baseline_annotated" src="https://github.com/user-attachments/assets/929cc8f8-7b89-4aed-9959-a152ef4df7dd" />
-
 
 ## Como Funciona
 
@@ -33,10 +22,15 @@ imagem -> YOLO -> VehicleDetection -> vagas anotadas -> ocupação -> twin state
 
 A ocupação é calculada pela área de sobreposição entre a bounding box do veículo e o polígono da vaga. Por padrão, se pelo menos `10%` da área da bbox do veículo estiver dentro da vaga, a vaga é marcada como `occupied`.
 
-Exemplo de detecção
+## Exemplo visual
 
-<img width="640" height="480" alt="10_annotated" src="https://github.com/user-attachments/assets/ac4e3e4a-cebe-4756-ac14-8c878b6e7fd5" />
+Tela principal do dashboard, com a última imagem analisada e metadados:
 
+<img width="780" height="480" alt="Screenshot from 2026-05-28 18-39-29" src="https://github.com/user-attachments/assets/95491f32-8186-4a12-98ca-22272f0a1b87" />
+
+Histórico de ocupação:
+
+<img width="780" height="480" alt="Screenshot from 2026-05-28 18-40-09" src="https://github.com/user-attachments/assets/c3246ac8-2f2b-49f8-98fe-ec8e0aee625a" />
 
 ## Estrutura do Projeto
 
@@ -131,46 +125,9 @@ for img in data/samples/*.jpg; do
 done
 ```
 
-Exemplo de saída:
-
-```json
-[
-  {
-    "bbox": [120.5, 80.2, 300.1, 220.8],
-    "class_name": "car",
-    "confidence": 0.87
-  }
-]
-```
-
-O detector filtra apenas:
-
-- `car`
-- `motorcycle`
-- `bus`
-- `truck`
-
 ## Twin State
 
-O estado salvo em JSON tem este formato:
-
-```json
-{
-  "timestamp": "2026-05-28T18:17:20.654879+00:00",
-  "spots": [
-    {
-      "id": "A1",
-      "polygon": [[993, 56], [1003, 17], [952, 12], [947, 49]],
-      "status": "free",
-      "confidence": null
-    }
-  ],
-  "total_spots": 44,
-  "occupied_count": 12,
-  "free_count": 32,
-  "uncertain_count": 0
-}
-```
+O estado é salvo em JSON.
 
 Além do JSON, o projeto também pode persistir snapshots em SQLite usando `scripts/run_parktwin.py`. Esse fluxo mantém histórico de ocupação, eventos por vaga e campos temporais como `occupied_since` e `last_changed_at`.
 
@@ -210,26 +167,3 @@ Ele mostra:
 - tabela com o estado atual de cada vaga.
 
 O dashboard lê os dados do SQLite em `data/parktwin.db`. Caso o banco ainda não exista ou esteja vazio, ele usa os arquivos `*_state.json` e `*_annotated.jpg` em `data/outputs/` como fallback.
-
-### Prints do Dashboard
-
-Visão geral
-
-```text
-TODO: inserir print da tela principal
-```
-
-Histórico de ocupação
-
-
-```text
-TODO: inserir print do histórico
-```
-
-Eventos por vaga
-
-
-```text
-TODO: inserir print dos eventos
-```
-
