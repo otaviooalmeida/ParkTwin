@@ -167,3 +167,58 @@ Ele mostra:
 - tabela com o estado atual de cada vaga.
 
 O dashboard lê os dados do SQLite em `data/parktwin.db`. Caso o banco ainda não exista ou esteja vazio, ele usa os arquivos `*_state.json` e `*_annotated.jpg` em `data/outputs/` como fallback.
+
+## Monitoramento em tempo real pelo YouTube Live
+
+Para monitorar a live `https://www.youtube.com/watch?v=EPKWu223XEg`, primeiro capture um frame base. Use esse frame para anotar as vagas; depois rode o monitor com o mesmo seletor de formato para manter a resolução igual.
+
+```bash
+python3 scripts/capture_youtube_frame.py \
+  --youtube-url https://www.youtube.com/watch?v=EPKWu223XEg \
+  --output data/samples/youtube_live_base.jpg
+```
+
+Anote esse frame:
+
+```bash
+python3 scripts/annotate_spots_web.py data/samples/youtube_live_base.jpg \
+  --input data/samples/spots_youtube_live.json \
+  --output data/samples/spots_youtube_live.json
+```
+
+Depois rode o monitoramento. O padrão processa 1 frame a cada 5 segundos, que é um limite conservador para deploy inicial com YOLO e evita gravar snapshots demais no SQLite.
+
+```bash
+python3 scripts/run_parktwin_youtube.py \
+  --youtube-url https://www.youtube.com/watch?v=EPKWu223XEg \
+  --spots data/samples/spots_youtube_live.json \
+  --model yolo11s.pt \
+  --interval 5
+```
+
+Esse processo atualiza continuamente:
+
+```text
+data/parktwin.db
+data/outputs/latest_frame.jpg
+data/outputs/latest_annotated.jpg
+```
+
+Em outro terminal, rode o dashboard:
+
+```bash
+streamlit run src/dashboard/app.py
+```
+
+No menu lateral, ative `Atualizar em tempo real` para o Streamlit recarregar os dados e a imagem anotada mais recente.
+
+Para testar sem deixar o processo rodando indefinidamente:
+
+```bash
+python3 scripts/run_parktwin_youtube.py \
+  --youtube-url https://www.youtube.com/watch?v=EPKWu223XEg \
+  --spots data/samples/spots_youtube_live.json \
+  --max-frames 10
+```
+
+O fluxo por JPEG direto continua disponível em `scripts/run_parktwin_stream.py` para câmeras que publicam snapshots `.jpg`.

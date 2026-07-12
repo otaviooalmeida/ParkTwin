@@ -4,3 +4,4 @@ pydantic
 ultralytics
 pytest
 streamlit
+yt-dlp

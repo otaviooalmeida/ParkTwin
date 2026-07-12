@@ -21,6 +21,42 @@ def test_assign_occupancy_marks_spot_as_occupied_when_vehicle_center_is_inside()
     assert result[0].confidence == 0.9
 
 
+def test_assign_occupancy_marks_spot_as_occupied_when_overlap_reaches_threshold():
+    spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
+    detections = [
+        VehicleDetection(bbox=[50, 50, 130, 130], class_name="car", confidence=0.8)
+    ]
+
+    result = assign_occupancy(spots, detections)
+
+    assert result[0].status == "occupied"
+    assert result[0].confidence == 0.8
+
+
+def test_assign_occupancy_ignores_small_overlap_below_threshold():
+    spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
+    detections = [
+        VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)
+    ]
+
+    result = assign_occupancy(spots, detections)
+
+    assert result[0].status == "free"
+    assert result[0].confidence is None
+
+
+def test_assign_occupancy_accepts_custom_overlap_threshold():
+    spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
+    detections = [
+        VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)
+    ]
+
+    result = assign_occupancy(spots, detections, overlap_threshold=0.02)
+
+    assert result[0].status == "occupied"
+    assert result[0].confidence == 0.8
+
+
 def test_assign_occupancy_ignores_vehicle_outside_all_spots():
     spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
     detections = [
