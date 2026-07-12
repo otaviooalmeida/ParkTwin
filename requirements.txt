@@ -1,7 +1,9 @@
 numpy
-opencv-python
+opencv-python-headless
 pydantic
 ultralytics
 pytest
 streamlit
 yt-dlp
+fastapi
+uvicorn[standard]

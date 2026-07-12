@@ -1,0 +1,40 @@
+services:
+  api:
+    build: .
+    environment:
+      PARKTWIN_DB_PATH: /app/data/parktwin.db
+      PARKTWIN_OUTPUTS_DIR: /app/data/outputs
+      PARKTWIN_CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  worker-youtube:
+    build: .
+    profiles:
+      - worker
+    command:
+      - python
+      - scripts/run_parktwin_youtube.py
+    environment:
+      PARKTWIN_DB_PATH: /app/data/parktwin.db
+      PARKTWIN_OUTPUTS_DIR: /app/data/outputs
+      PARKTWIN_SPOTS_PATH: /app/data/samples/spots_annotated.json
+      PARKTWIN_MODEL_PATH: /app/models/yolo11s.pt
+      PARKTWIN_YOUTUBE_URL: ${PARKTWIN_YOUTUBE_URL:-https://www.youtube.com/watch?v=EPKWu223XEg}
+      PARKTWIN_INTERVAL_SECONDS: ${PARKTWIN_INTERVAL_SECONDS:-5}
+      PARKTWIN_PARKING_LOT_ID: ${PARKTWIN_PARKING_LOT_ID:-youtube-live}
+    volumes:
+      - ./data:/app/data
+      - ./yolo11s.pt:/app/models/yolo11s.pt:ro

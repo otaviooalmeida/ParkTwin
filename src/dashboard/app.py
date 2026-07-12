@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,8 @@ sys.path.insert(0, str(SRC_PATH))
 from twin.repository import TwinRepository  # noqa: E402
 
 
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "parktwin.db"
-DEFAULT_OUTPUTS_DIR = PROJECT_ROOT / "data" / "outputs"
+DEFAULT_DB_PATH = Path(os.getenv("PARKTWIN_DB_PATH", PROJECT_ROOT / "data" / "parktwin.db"))
+DEFAULT_OUTPUTS_DIR = Path(os.getenv("PARKTWIN_OUTPUTS_DIR", PROJECT_ROOT / "data" / "outputs"))
 
 
 def main() -> None:
@@ -44,7 +45,7 @@ def main() -> None:
             st.warning("Nenhuma imagem anotada encontrada.")
         else:
             st.image(str(latest_image_path), use_container_width=True)
-            st.caption(str(latest_image_path.relative_to(PROJECT_ROOT)))
+            st.caption(_display_path(latest_image_path))
 
     with table_column:
         st.subheader("Estado atual das vagas")
@@ -236,6 +237,13 @@ def _spot_rows(spots: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         for spot in spots
     ]
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def _find_latest_state_file(outputs_dir: Path) -> Path | None:

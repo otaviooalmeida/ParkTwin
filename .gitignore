@@ -9,4 +9,7 @@ runs/
 tests/
 data/
 docs/
-src/api/
+node_modules/
+dist/
+.env
+.venv/

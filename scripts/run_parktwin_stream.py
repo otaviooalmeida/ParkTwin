@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from pathlib import Path
 from time import sleep, time
@@ -26,7 +27,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--source-url",
-        default=DEFAULT_INSECAM_URL,
+        default=os.getenv("PARKTWIN_SOURCE_URL", DEFAULT_INSECAM_URL),
         help="Insecam camera page URL or direct JPEG snapshot URL.",
     )
     parser.add_argument(
@@ -37,50 +38,50 @@ def main() -> None:
     parser.add_argument(
         "--interval",
         type=float,
-        default=2.0,
+        default=float(os.getenv("PARKTWIN_INTERVAL_SECONDS", "2.0")),
         help="Seconds between processed frames. Default: 2.0.",
     )
     parser.add_argument(
         "--request-timeout",
         type=float,
-        default=20.0,
+        default=float(os.getenv("PARKTWIN_REQUEST_TIMEOUT", "20.0")),
         help="HTTP timeout in seconds. Default: 20.0.",
     )
     parser.add_argument(
         "--spots",
-        default=PROJECT_ROOT / "data" / "samples" / "spots_annotated.json",
+        default=os.getenv("PARKTWIN_SPOTS_PATH", PROJECT_ROOT / "data" / "samples" / "spots_annotated.json"),
         help="Path to the parking spots JSON file.",
     )
     parser.add_argument(
         "--model",
-        default="yolo11s.pt",
+        default=os.getenv("PARKTWIN_MODEL_PATH", "yolo11s.pt"),
         help="Path to the YOLO model file. Default: yolo11s.pt.",
     )
     parser.add_argument(
         "--imgsz",
         type=int,
-        default=1280,
+        default=int(os.getenv("PARKTWIN_IMGSZ", "1280")),
         help="YOLO inference image size. Default: 1280.",
     )
     parser.add_argument(
         "--occupancy-threshold",
         type=float,
-        default=0.1,
+        default=float(os.getenv("PARKTWIN_OCCUPANCY_THRESHOLD", "0.1")),
         help="Minimum bbox area ratio inside a spot to mark it occupied. Default: 0.1.",
     )
     parser.add_argument(
         "--parking-lot-id",
-        default="insecam-945438",
+        default=os.getenv("PARKTWIN_PARKING_LOT_ID", "insecam-945438"),
         help="Parking lot identifier stored in the twin state.",
     )
     parser.add_argument(
         "--db",
-        default=PROJECT_ROOT / "data" / "parktwin.db",
+        default=os.getenv("PARKTWIN_DB_PATH", PROJECT_ROOT / "data" / "parktwin.db"),
         help="SQLite database path. Default: data/parktwin.db.",
     )
     parser.add_argument(
         "--output-dir",
-        default=PROJECT_ROOT / "data" / "outputs",
+        default=os.getenv("PARKTWIN_OUTPUTS_DIR", PROJECT_ROOT / "data" / "outputs"),
         help="Directory where latest frame and annotated image will be saved.",
     )
     parser.add_argument(
@@ -91,6 +92,7 @@ def main() -> None:
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     frame_path = output_dir / "latest_frame.jpg"
     annotated_temp_path = output_dir / ".latest_annotated.tmp.jpg"
     annotated_path = output_dir / "latest_annotated.jpg"

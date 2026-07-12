@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -20,45 +21,46 @@ def main() -> None:
     parser.add_argument("image_path", help="Path to the input image.")
     parser.add_argument(
         "--spots",
-        default=PROJECT_ROOT / "data" / "samples" / "spots_annotated.json",
+        default=os.getenv("PARKTWIN_SPOTS_PATH", PROJECT_ROOT / "data" / "samples" / "spots_annotated.json"),
         help="Path to the parking spots JSON file.",
     )
     parser.add_argument(
         "--model",
-        default="yolo11s.pt",
+        default=os.getenv("PARKTWIN_MODEL_PATH", "yolo11s.pt"),
         help="Path to the YOLO model file. Default: yolo11s.pt",
     )
     parser.add_argument(
         "--imgsz",
         type=int,
-        default=1280,
+        default=int(os.getenv("PARKTWIN_IMGSZ", "1280")),
         help="YOLO inference image size. Default: 1280",
     )
     parser.add_argument(
         "--occupancy-threshold",
         type=float,
-        default=0.1,
+        default=float(os.getenv("PARKTWIN_OCCUPANCY_THRESHOLD", "0.1")),
         help="Minimum bbox area ratio inside a spot to mark it occupied. Default: 0.1",
     )
     parser.add_argument(
         "--parking-lot-id",
-        default="default",
+        default=os.getenv("PARKTWIN_PARKING_LOT_ID", "default"),
         help="Parking lot identifier stored in the twin state.",
     )
     parser.add_argument(
         "--db",
-        default=PROJECT_ROOT / "data" / "parktwin.db",
+        default=os.getenv("PARKTWIN_DB_PATH", PROJECT_ROOT / "data" / "parktwin.db"),
         help="SQLite database path. Default: data/parktwin.db",
     )
     parser.add_argument(
         "--output-dir",
-        default=PROJECT_ROOT / "data" / "outputs",
+        default=os.getenv("PARKTWIN_OUTPUTS_DIR", PROJECT_ROOT / "data" / "outputs"),
         help="Directory where latest_annotated.jpg will be saved.",
     )
     args = parser.parse_args()
 
     image_path = Path(args.image_path)
     output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     output_image_path = output_dir / "latest_annotated.jpg"
 
     spots = load_parking_spots(args.spots)

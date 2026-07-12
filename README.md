@@ -45,7 +45,8 @@ Histórico de ocupação:
 │   ├── run_parktwin.py        # gerenciamento do streamlit/sqlite
 │   └── run_pipeline_image.py  # roda o pipeline completo
 ├── src/
-│   ├── dashboard/             # dashboard para visualização
+│   ├── api/                   # API FastAPI para o produto web
+│   ├── dashboard/             # dashboard Streamlit legado
 │   ├── detection/             # detector YOLO
 │   ├── parking/               # vagas, geometria, ocupação e visualização
 │   └── twin/                  # estado digital do estacionamento
@@ -167,6 +168,69 @@ Ele mostra:
 - tabela com o estado atual de cada vaga.
 
 O dashboard lê os dados do SQLite em `data/parktwin.db`. Caso o banco ainda não exista ou esteja vazio, ele usa os arquivos `*_state.json` e `*_annotated.jpg` em `data/outputs/` como fallback.
+
+## Produto Web com FastAPI e Node/React
+
+A superfície de produto fica separada em dois serviços:
+
+```text
+worker Python -> data/parktwin.db + data/outputs/latest_annotated.jpg
+FastAPI       -> endpoints HTTP para snapshot, histórico, eventos e imagem
+React/Vite    -> dashboard operacional consumindo a API
+```
+
+Endpoints principais:
+
+```text
+GET /health
+GET /api/snapshots/latest
+GET /api/history
+GET /api/events?limit=100
+GET /api/images/latest
+```
+
+Para rodar a API localmente:
+
+```bash
+uvicorn api.app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Para rodar o frontend localmente:
+
+```bash
+cd frontend
+npm install
+VITE_API_BASE_URL=http://localhost:8000 npm run dev
+```
+
+Variáveis de ambiente usadas pela API, Streamlit e workers:
+
+```text
+PARKTWIN_DB_PATH=data/parktwin.db
+PARKTWIN_OUTPUTS_DIR=data/outputs
+PARKTWIN_SPOTS_PATH=data/samples/spots_annotated.json
+PARKTWIN_MODEL_PATH=yolo11s.pt
+PARKTWIN_CORS_ORIGINS=http://localhost:5173,http://localhost:8080
+```
+
+### Deploy com Docker Compose
+
+Subir API e frontend:
+
+```bash
+docker compose up --build api web
+```
+
+A API fica em `http://localhost:8000` e o frontend em `http://localhost:8080`.
+
+Para ativar o worker contínuo de YouTube Live junto do produto:
+
+```bash
+cp .env.example .env
+docker compose --profile worker up --build
+```
+
+O Compose monta `./data` como volume persistente e monta `./yolo11s.pt` em `/app/models/yolo11s.pt`. Como os pesos do YOLO já ficam fora do Git por `.gitignore`, não é necessário Git LFS para este fluxo.
 
 ## Monitoramento em tempo real pelo YouTube Live
 
