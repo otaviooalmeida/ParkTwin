@@ -1,10 +1,15 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 SpotStatus = Literal["free", "occupied", "uncertain"]
 Point = tuple[float, float]
+
+
+class ParkingSpotConfig(BaseModel):
+    id: str = Field(min_length=1)
+    polygon: list[Point] = Field(min_items=3)
 
 
 class SpotStateResponse(BaseModel):
@@ -48,3 +53,21 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     database_exists: bool
     latest_image_exists: bool
+    base_image_exists: bool
+    spots_configured: bool
+
+
+class ParkingLotConfigResponse(BaseModel):
+    base_image_exists: bool
+    base_image_url: str | None = None
+    spots: list[ParkingSpotConfig]
+
+
+class UploadResponse(BaseModel):
+    filename: str
+    url: str
+
+
+class ProcessImageResponse(BaseModel):
+    snapshot: SnapshotResponse
+    annotated_image_url: str

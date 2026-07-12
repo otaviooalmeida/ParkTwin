@@ -4,9 +4,14 @@ services:
     environment:
       PARKTWIN_DB_PATH: /app/data/parktwin.db
       PARKTWIN_OUTPUTS_DIR: /app/data/outputs
+      PARKTWIN_UPLOADS_DIR: /app/data/uploads
+      PARKTWIN_BASE_IMAGE_PATH: /app/data/uploads/base_image.jpg
+      PARKTWIN_SPOTS_PATH: /app/data/samples/spots_annotated.json
+      PARKTWIN_MODEL_PATH: /app/models/yolo11s.pt
       PARKTWIN_CORS_ORIGINS: http://localhost:5173,http://localhost:8080
     volumes:
       - ./data:/app/data
+      - ./yolo11s.pt:/app/models/yolo11s.pt:ro
     ports:
       - "8000:8000"
 
@@ -30,6 +35,8 @@ services:
     environment:
       PARKTWIN_DB_PATH: /app/data/parktwin.db
       PARKTWIN_OUTPUTS_DIR: /app/data/outputs
+      PARKTWIN_UPLOADS_DIR: /app/data/uploads
+      PARKTWIN_BASE_IMAGE_PATH: /app/data/uploads/base_image.jpg
       PARKTWIN_SPOTS_PATH: /app/data/samples/spots_annotated.json
       PARKTWIN_MODEL_PATH: /app/models/yolo11s.pt
       PARKTWIN_YOUTUBE_URL: ${PARKTWIN_YOUTUBE_URL:-https://www.youtube.com/watch?v=EPKWu223XEg}

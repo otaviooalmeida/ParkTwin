@@ -1,9 +1,11 @@
 import json
+import shutil
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -11,24 +13,33 @@ from api.config import get_settings
 from api.schemas import (
     HealthResponse,
     OccupancyHistoryRow,
+    ParkingLotConfigResponse,
+    ParkingSpotConfig,
+    ProcessImageResponse,
     SnapshotResponse,
     SpotEventResponse,
+    UploadResponse,
 )
+from detection.yolo_detector import VehicleDetector
+from parking.loader import load_parking_spots
+from parking.occupancy import assign_occupancy
+from parking.visualizer import save_annotated_image
 from twin.repository import TwinRepository
+from twin.state_manager import update_twin_state
 
 
 settings = get_settings()
 
 app = FastAPI(
     title="ParkTwin API",
-    description="HTTP API for parking occupancy snapshots, events, and latest imagery.",
+    description="HTTP API for parking occupancy snapshots, events, setup, and imagery.",
     version="0.1.0",
 )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
 
@@ -40,6 +51,96 @@ def health() -> HealthResponse:
         database_exists=settings.db_path.exists(),
         latest_image_exists=_find_latest_annotated_image(settings.outputs_dir)
         is not None,
+        base_image_exists=settings.base_image_path.exists(),
+        spots_configured=settings.spots_path.exists(),
+    )
+
+
+@app.get("/api/config", response_model=ParkingLotConfigResponse)
+def parking_lot_config() -> ParkingLotConfigResponse:
+    return ParkingLotConfigResponse(
+        base_image_exists=settings.base_image_path.exists(),
+        base_image_url=(
+            "/api/config/base-image" if settings.base_image_path.exists() else None
+        ),
+        spots=_load_spot_config(settings.spots_path),
+    )
+
+
+@app.post("/api/config/base-image", response_model=UploadResponse)
+def upload_base_image(file: UploadFile = File(...)) -> UploadResponse:
+    _ensure_image_upload(file)
+    settings.uploads_dir.mkdir(parents=True, exist_ok=True)
+    _save_upload(file, settings.base_image_path)
+    return UploadResponse(
+        filename=settings.base_image_path.name,
+        url="/api/config/base-image",
+    )
+
+
+@app.get("/api/config/base-image")
+def base_image() -> FileResponse:
+    if not settings.base_image_path.exists():
+        raise HTTPException(status_code=404, detail="No base image uploaded.")
+
+    return FileResponse(settings.base_image_path, media_type="image/jpeg")
+
+
+@app.get("/api/config/spots", response_model=list[ParkingSpotConfig])
+def get_spots() -> list[ParkingSpotConfig]:
+    return _load_spot_config(settings.spots_path)
+
+
+@app.put("/api/config/spots", response_model=list[ParkingSpotConfig])
+def save_spots(spots: list[ParkingSpotConfig]) -> list[ParkingSpotConfig]:
+    if not spots:
+        raise HTTPException(status_code=400, detail="At least one spot is required.")
+
+    ids = [spot.id for spot in spots]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=400, detail="Spot IDs must be unique.")
+
+    settings.spots_path.parent.mkdir(parents=True, exist_ok=True)
+    with settings.spots_path.open("w", encoding="utf-8") as file:
+        json.dump([spot.dict() for spot in spots], file, indent=2)
+
+    return spots
+
+
+@app.post("/api/process-image", response_model=ProcessImageResponse)
+def process_uploaded_image(file: UploadFile = File(...)) -> ProcessImageResponse:
+    _ensure_image_upload(file)
+    _ensure_processing_configured()
+    settings.uploads_dir.mkdir(parents=True, exist_ok=True)
+    settings.outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    upload_path = settings.uploads_dir / f"{uuid4().hex}_{_clean_filename(file.filename)}"
+    annotated_path = settings.outputs_dir / "latest_annotated.jpg"
+    _save_upload(file, upload_path)
+
+    spots = load_parking_spots(settings.spots_path)
+    detector = VehicleDetector(settings.model_path, imgsz=settings.imgsz)
+    detections = detector.detect(upload_path)
+    occupied_spots = assign_occupancy(
+        spots,
+        detections,
+        overlap_threshold=settings.occupancy_threshold,
+    )
+
+    repository = TwinRepository(settings.db_path)
+    previous_state = repository.get_latest_snapshot()
+    state = update_twin_state(
+        parking_lot_id=settings.parking_lot_id,
+        current_spot_statuses=occupied_spots,
+        previous_state=previous_state,
+    )
+    repository.save_snapshot(state)
+    repository.save_spot_events(state)
+    save_annotated_image(upload_path, occupied_spots, detections, annotated_path)
+
+    return ProcessImageResponse(
+        snapshot=SnapshotResponse(**asdict(state)),
+        annotated_image_url="/api/images/latest",
     )
 
 
@@ -73,6 +174,43 @@ def latest_annotated_image() -> FileResponse:
         raise HTTPException(status_code=404, detail="No annotated image found.")
 
     return FileResponse(image_path, media_type="image/jpeg")
+
+
+def _ensure_processing_configured() -> None:
+    if not settings.spots_path.exists():
+        raise HTTPException(status_code=400, detail="No parking spots configured.")
+
+    if not settings.model_path.exists():
+        raise HTTPException(status_code=400, detail="YOLO model file not found.")
+
+
+def _ensure_image_upload(file: UploadFile) -> None:
+    if file.content_type is None or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Upload must be an image file.")
+
+
+def _save_upload(file: UploadFile, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("wb") as output:
+        shutil.copyfileobj(file.file, output)
+    file.file.close()
+
+
+def _clean_filename(filename: str | None) -> str:
+    if not filename:
+        return "upload.jpg"
+
+    return Path(filename).name.replace(" ", "_")
+
+
+def _load_spot_config(path: Path) -> list[ParkingSpotConfig]:
+    if not path.exists():
+        return []
+
+    with path.open(encoding="utf-8") as file:
+        data = json.load(file)
+
+    return [ParkingSpotConfig(**item) for item in data]
 
 
 def _load_latest_snapshot(

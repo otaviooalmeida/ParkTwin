@@ -174,19 +174,31 @@ O dashboard lê os dados do SQLite em `data/parktwin.db`. Caso o banco ainda nã
 A superfície de produto fica separada em dois serviços:
 
 ```text
-worker Python -> data/parktwin.db + data/outputs/latest_annotated.jpg
-FastAPI       -> endpoints HTTP para snapshot, histórico, eventos e imagem
-React/Vite    -> dashboard operacional consumindo a API
+worker Python ou upload manual -> data/parktwin.db + data/outputs/latest_annotated.jpg
+FastAPI                        -> configuração, processamento, snapshots e imagem
+React/Vite                     -> dashboard, anotação de vagas e upload de imagens
 ```
+
+Fluxos disponíveis no frontend:
+
+- `Monitorar`: visualiza a última imagem processada, métricas, histórico e eventos.
+- `Configurar`: envia uma imagem base do estacionamento e desenha os polígonos das vagas no navegador.
+- `Processar`: envia uma nova foto do mesmo enquadramento e roda YOLO usando as vagas salvas.
 
 Endpoints principais:
 
 ```text
-GET /health
-GET /api/snapshots/latest
-GET /api/history
-GET /api/events?limit=100
-GET /api/images/latest
+GET  /health
+GET  /api/config
+POST /api/config/base-image
+GET  /api/config/base-image
+GET  /api/config/spots
+PUT  /api/config/spots
+POST /api/process-image
+GET  /api/snapshots/latest
+GET  /api/history
+GET  /api/events?limit=100
+GET  /api/images/latest
 ```
 
 Para rodar a API localmente:
@@ -208,6 +220,8 @@ Variáveis de ambiente usadas pela API, Streamlit e workers:
 ```text
 PARKTWIN_DB_PATH=data/parktwin.db
 PARKTWIN_OUTPUTS_DIR=data/outputs
+PARKTWIN_UPLOADS_DIR=data/uploads
+PARKTWIN_BASE_IMAGE_PATH=data/uploads/base_image.jpg
 PARKTWIN_SPOTS_PATH=data/samples/spots_annotated.json
 PARKTWIN_MODEL_PATH=yolo11s.pt
 PARKTWIN_CORS_ORIGINS=http://localhost:5173,http://localhost:8080
