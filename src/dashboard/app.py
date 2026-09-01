@@ -1,10 +1,11 @@
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 import streamlit as st
-
+import streamlit.components.v1 as components
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PATH = PROJECT_ROOT / "src"
@@ -12,16 +13,17 @@ sys.path.insert(0, str(SRC_PATH))
 
 from twin.repository import TwinRepository  # noqa: E402
 
-
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "parktwin.db"
-DEFAULT_OUTPUTS_DIR = PROJECT_ROOT / "data" / "outputs"
+DEFAULT_DB_PATH = Path(os.getenv("PARKTWIN_DB_PATH", PROJECT_ROOT / "data" / "parktwin.db"))
+DEFAULT_OUTPUTS_DIR = Path(os.getenv("PARKTWIN_OUTPUTS_DIR", PROJECT_ROOT / "data" / "outputs"))
 
 
 def main() -> None:
     st.set_page_config(page_title="ParkTwin Dashboard", layout="wide")
     st.title("ParkTwin")
 
-    db_path, outputs_dir, event_limit = _render_sidebar()
+    db_path, outputs_dir, event_limit, refresh_interval = _render_sidebar()
+    if refresh_interval is not None:
+        _render_auto_refresh(refresh_interval)
 
     snapshot = _load_latest_snapshot(db_path, outputs_dir)
     history = _load_occupancy_history(db_path, outputs_dir)
@@ -41,7 +43,7 @@ def main() -> None:
             st.warning("Nenhuma imagem anotada encontrada.")
         else:
             st.image(str(latest_image_path), use_container_width=True)
-            st.caption(str(latest_image_path.relative_to(PROJECT_ROOT)))
+            st.caption(_display_path(latest_image_path))
 
     with table_column:
         st.subheader("Estado atual das vagas")
@@ -71,11 +73,9 @@ def main() -> None:
         st.info("Nenhum evento disponível.")
 
 
-def _render_sidebar() -> tuple[Path, Path, int]:
+def _render_sidebar() -> tuple[Path, Path, int, float | None]:
     st.sidebar.header("Fonte de dados")
-    db_path = Path(
-        st.sidebar.text_input("SQLite DB", value=str(DEFAULT_DB_PATH))
-    )
+    db_path = Path(st.sidebar.text_input("SQLite DB", value=str(DEFAULT_DB_PATH)))
     outputs_dir = Path(
         st.sidebar.text_input("Diretório de outputs", value=str(DEFAULT_OUTPUTS_DIR))
     )
@@ -86,8 +86,37 @@ def _render_sidebar() -> tuple[Path, Path, int]:
         value=100,
         step=10,
     )
-    st.sidebar.caption("O dashboard usa SQLite quando há snapshots. Caso contrário, lê os JSONs em data/outputs.")
-    return db_path, outputs_dir, int(event_limit)
+    auto_refresh = st.sidebar.checkbox("Atualizar em tempo real", value=False)
+    refresh_interval = st.sidebar.number_input(
+        "Intervalo de atualização (s)",
+        min_value=1.0,
+        max_value=60.0,
+        value=2.0,
+        step=1.0,
+        disabled=not auto_refresh,
+    )
+    st.sidebar.caption(
+        "O dashboard usa SQLite quando há snapshots. Caso contrário, lê os JSONs em data/outputs."
+    )
+    return (
+        db_path,
+        outputs_dir,
+        int(event_limit),
+        float(refresh_interval) if auto_refresh else None,
+    )
+
+
+def _render_auto_refresh(interval_seconds: float) -> None:
+    components.html(
+        f"""
+        <script>
+          setTimeout(function() {{
+            window.parent.location.reload();
+          }}, {int(interval_seconds * 1000)});
+        </script>
+        """,
+        height=0,
+    )
 
 
 def _render_metrics(snapshot: dict[str, Any]) -> None:
@@ -206,6 +235,13 @@ def _spot_rows(spots: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         for spot in spots
     ]
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def _find_latest_state_file(outputs_dir: Path) -> Path | None:

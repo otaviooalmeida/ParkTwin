@@ -1,0 +1,14 @@
+{
+  "description": "Bootstrap example. Review the image and labels before setting verified=true.",
+  "cases": [
+    {
+      "id": "baseline",
+      "image": "../data/samples/baseline.jpg",
+      "spots": "../data/samples/spots_annotated.json",
+      "verified": false,
+      "expected": {
+        "A1": "free"
+      }
+    }
+  ]
+}

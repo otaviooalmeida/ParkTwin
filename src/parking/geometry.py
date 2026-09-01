@@ -144,14 +144,8 @@ def _line_intersection(
     if abs(denominator) < 1e-9:
         return first_end
 
-    x = (
-        (x1 * y2 - y1 * x2) * (x3 - x4)
-        - (x1 - x2) * (x3 * y4 - y3 * x4)
-    ) / denominator
-    y = (
-        (x1 * y2 - y1 * x2) * (y3 - y4)
-        - (y1 - y2) * (x3 * y4 - y3 * x4)
-    ) / denominator
+    x = ((x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)) / denominator
+    y = ((x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)) / denominator
 
     return [x, y]
 
@@ -182,10 +176,7 @@ def _polygons_have_intersecting_edges(
 
 
 def _polygon_edges(polygon: list[Point]) -> list[tuple[Point, Point]]:
-    return [
-        (polygon[index], polygon[(index + 1) % len(polygon)])
-        for index in range(len(polygon))
-    ]
+    return [(polygon[index], polygon[(index + 1) % len(polygon)]) for index in range(len(polygon))]
 
 
 def _segments_intersect(

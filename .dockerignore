@@ -1,0 +1,15 @@
+.git
+.pytest_cache
+__pycache__
+*.pyc
+.venv
+node_modules
+frontend/node_modules
+frontend/dist
+data
+runs
+tests
+docs
+*.pt
+.coverage
+.ruff_cache

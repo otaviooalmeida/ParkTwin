@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
-from parking.models import Point
 
+from parking.models import Point
 
 SpotStatus = Literal["free", "occupied", "uncertain"]
 
@@ -14,6 +14,8 @@ class SpotState:
     confidence: float | None = None
     occupied_since: str | None = None
     last_changed_at: str | None = None
+    pending_status: SpotStatus | None = None
+    pending_count: int = 0
 
 
 @dataclass
