@@ -1,6 +1,6 @@
 {
   "name": "parktwin-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,15 +9,18 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "lucide-react": "1.24.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "4.3.4",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.1.1",
     "typescript": "5.6.3",
-    "vite": "5.4.21"
+    "vite": "8.2.2"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
   }
 }

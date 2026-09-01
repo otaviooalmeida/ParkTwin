@@ -13,7 +13,6 @@ from camera_stream.youtube import (
     save_video_frame,
 )
 
-
 __all__ = [
     "DEFAULT_USER_AGENT",
     "build_frame_url",

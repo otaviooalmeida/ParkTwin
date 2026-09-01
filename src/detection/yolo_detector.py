@@ -2,7 +2,6 @@ from pathlib import Path
 
 from parking.models import VehicleDetection
 
-
 VEHICLE_CLASSES = {"car", "motorcycle", "bus", "truck"}
 
 

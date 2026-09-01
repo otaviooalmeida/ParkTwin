@@ -2,7 +2,6 @@ import argparse
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
@@ -18,9 +17,7 @@ from camera_stream.youtube import (  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Capture one frame from a YouTube live stream."
-    )
+    parser = argparse.ArgumentParser(description="Capture one frame from a YouTube live stream.")
     parser.add_argument(
         "--youtube-url",
         default=DEFAULT_YOUTUBE_URL,

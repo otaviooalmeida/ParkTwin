@@ -1,11 +1,10 @@
 import json
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from parking.models import ParkingSpot
 from twin.models import ParkingTwinState, SpotState, calculate_twin_counts
-
 
 TwinState = ParkingTwinState
 
@@ -23,7 +22,7 @@ def build_twin_state(spots: list[ParkingSpot]) -> TwinState:
     counts = calculate_twin_counts(spot_states)
 
     return ParkingTwinState(
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         spots=spot_states,
         total_spots=int(counts["total_spots"]),
         occupied_count=int(counts["occupied_count"]),

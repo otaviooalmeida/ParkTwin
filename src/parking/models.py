@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Literal
 
-
 Point = list[float]
 BBox = list[float]
 SpotStatus = Literal["free", "occupied", "uncertain"]

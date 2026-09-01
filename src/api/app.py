@@ -1,8 +1,8 @@
 import json
-import shutil
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from threading import Lock
+from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
@@ -20,20 +20,19 @@ from api.schemas import (
     SpotEventResponse,
     UploadResponse,
 )
+from api.uploads import InvalidImageUpload, UploadTooLarge, save_validated_image
 from detection.yolo_detector import VehicleDetector
-from parking.loader import load_parking_spots
-from parking.occupancy import assign_occupancy
-from parking.visualizer import save_annotated_image
+from parktwin.pipeline import process_parking_image
 from twin.repository import TwinRepository
-from twin.state_manager import update_twin_state
-
 
 settings = get_settings()
+_detector: VehicleDetector | None = None
+_detector_lock = Lock()
 
 app = FastAPI(
     title="ParkTwin API",
     description="HTTP API for parking occupancy snapshots, events, setup, and imagery.",
-    version="0.1.0",
+    version="0.2.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -49,8 +48,9 @@ def health() -> HealthResponse:
     return HealthResponse(
         status="ok",
         database_exists=settings.db_path.exists(),
-        latest_image_exists=_find_latest_annotated_image(settings.outputs_dir)
-        is not None,
+        model_exists=settings.model_path.exists(),
+        detector_loaded=_detector is not None,
+        latest_image_exists=_find_latest_annotated_image(settings.outputs_dir) is not None,
         base_image_exists=settings.base_image_path.exists(),
         spots_configured=settings.spots_path.exists(),
     )
@@ -60,15 +60,13 @@ def health() -> HealthResponse:
 def parking_lot_config() -> ParkingLotConfigResponse:
     return ParkingLotConfigResponse(
         base_image_exists=settings.base_image_path.exists(),
-        base_image_url=(
-            "/api/config/base-image" if settings.base_image_path.exists() else None
-        ),
+        base_image_url=("/api/config/base-image" if settings.base_image_path.exists() else None),
         spots=_load_spot_config(settings.spots_path),
     )
 
 
 @app.post("/api/config/base-image", response_model=UploadResponse)
-def upload_base_image(file: UploadFile = File(...)) -> UploadResponse:
+def upload_base_image(file: Annotated[UploadFile, File()]) -> UploadResponse:
     _ensure_image_upload(file)
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     _save_upload(file, settings.base_image_path)
@@ -101,52 +99,60 @@ def save_spots(spots: list[ParkingSpotConfig]) -> list[ParkingSpotConfig]:
         raise HTTPException(status_code=400, detail="Spot IDs must be unique.")
 
     settings.spots_path.parent.mkdir(parents=True, exist_ok=True)
-    with settings.spots_path.open("w", encoding="utf-8") as file:
-        json.dump([spot.dict() for spot in spots], file, indent=2)
+    temporary_path = settings.spots_path.with_name(f".{settings.spots_path.name}.{uuid4().hex}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8") as file:
+            json.dump([spot.model_dump() for spot in spots], file, indent=2, allow_nan=False)
+        temporary_path.replace(settings.spots_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
     return spots
 
 
 @app.post("/api/process-image", response_model=ProcessImageResponse)
-def process_uploaded_image(file: UploadFile = File(...)) -> ProcessImageResponse:
+def process_uploaded_image(file: Annotated[UploadFile, File()]) -> ProcessImageResponse:
     _ensure_image_upload(file)
     _ensure_processing_configured()
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    upload_path = settings.uploads_dir / f"{uuid4().hex}_{_clean_filename(file.filename)}"
+    upload_path = settings.uploads_dir / f"{uuid4().hex}.jpg"
     annotated_path = settings.outputs_dir / "latest_annotated.jpg"
     _save_upload(file, upload_path)
 
-    spots = load_parking_spots(settings.spots_path)
-    detector = VehicleDetector(settings.model_path, imgsz=settings.imgsz)
-    detections = detector.detect(upload_path)
-    occupied_spots = assign_occupancy(
-        spots,
-        detections,
-        overlap_threshold=settings.occupancy_threshold,
-    )
-
-    repository = TwinRepository(settings.db_path)
-    previous_state = repository.get_latest_snapshot()
-    state = update_twin_state(
-        parking_lot_id=settings.parking_lot_id,
-        current_spot_statuses=occupied_spots,
-        previous_state=previous_state,
-    )
-    repository.save_snapshot(state)
-    repository.save_spot_events(state)
-    save_annotated_image(upload_path, occupied_spots, detections, annotated_path)
+    try:
+        result = process_parking_image(
+            image_path=upload_path,
+            spots_path=settings.spots_path,
+            detector=_get_detector(),
+            repository=TwinRepository(settings.db_path),
+            parking_lot_id=settings.parking_lot_id,
+            annotated_image_path=annotated_path,
+            occupancy_threshold=settings.occupancy_threshold,
+            uncertain_overlap_threshold=settings.uncertain_overlap_threshold,
+            change_confirmation_frames=settings.change_confirmation_frames,
+            retention_snapshots=settings.retention_snapshots,
+        )
+        state = result.state
+    finally:
+        upload_path.unlink(missing_ok=True)
 
     return ProcessImageResponse(
         snapshot=SnapshotResponse(**asdict(state)),
         annotated_image_url="/api/images/latest",
+        detection_count=len(result.analysis.detections),
+        processing_time_ms=result.processing_time_ms,
     )
 
 
 @app.get("/api/snapshots/latest", response_model=SnapshotResponse)
 def latest_snapshot() -> SnapshotResponse:
-    snapshot = _load_latest_snapshot(settings.db_path, settings.outputs_dir)
+    snapshot = _load_latest_snapshot(
+        settings.db_path,
+        settings.outputs_dir,
+        settings.parking_lot_id,
+    )
     if snapshot is None:
         raise HTTPException(status_code=404, detail="No snapshot found.")
 
@@ -154,16 +160,32 @@ def latest_snapshot() -> SnapshotResponse:
 
 
 @app.get("/api/history", response_model=list[OccupancyHistoryRow])
-def occupancy_history() -> list[OccupancyHistoryRow]:
-    rows = _load_occupancy_history(settings.db_path, settings.outputs_dir)
+def occupancy_history(
+    limit: int = Query(default=500, ge=1, le=5000),
+    offset: int = Query(default=0, ge=0),
+) -> list[OccupancyHistoryRow]:
+    rows = _load_occupancy_history(
+        settings.db_path,
+        settings.outputs_dir,
+        limit,
+        offset,
+        settings.parking_lot_id,
+    )
     return [OccupancyHistoryRow(**row) for row in rows]
 
 
 @app.get("/api/events", response_model=list[SpotEventResponse])
 def recent_events(
     limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ) -> list[SpotEventResponse]:
-    rows = _load_recent_events(settings.db_path, settings.outputs_dir, limit)
+    rows = _load_recent_events(
+        settings.db_path,
+        settings.outputs_dir,
+        limit,
+        offset,
+        settings.parking_lot_id,
+    )
     return [SpotEventResponse(**row) for row in rows]
 
 
@@ -190,17 +212,27 @@ def _ensure_image_upload(file: UploadFile) -> None:
 
 
 def _save_upload(file: UploadFile, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with destination.open("wb") as output:
-        shutil.copyfileobj(file.file, output)
-    file.file.close()
+    try:
+        save_validated_image(
+            file.file,
+            destination,
+            max_bytes=settings.max_upload_bytes,
+        )
+    except UploadTooLarge as error:
+        raise HTTPException(status_code=413, detail=str(error)) from error
+    except InvalidImageUpload as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    finally:
+        file.file.close()
 
 
-def _clean_filename(filename: str | None) -> str:
-    if not filename:
-        return "upload.jpg"
-
-    return Path(filename).name.replace(" ", "_")
+def _get_detector() -> VehicleDetector:
+    global _detector
+    if _detector is None:
+        with _detector_lock:
+            if _detector is None:
+                _detector = VehicleDetector(settings.model_path, imgsz=settings.imgsz)
+    return _detector
 
 
 def _load_spot_config(path: Path) -> list[ParkingSpotConfig]:
@@ -216,11 +248,11 @@ def _load_spot_config(path: Path) -> list[ParkingSpotConfig]:
 def _load_latest_snapshot(
     db_path: Path,
     outputs_dir: Path,
+    parking_lot_id: str,
 ) -> dict[str, Any] | None:
     if db_path.exists():
-        snapshot = TwinRepository(db_path).get_latest_snapshot()
-        if snapshot is not None:
-            return asdict(snapshot)
+        snapshot = TwinRepository(db_path).get_latest_snapshot(parking_lot_id)
+        return asdict(snapshot) if snapshot is not None else None
 
     latest_state_path = _find_latest_state_file(outputs_dir)
     if latest_state_path is None:
@@ -232,30 +264,42 @@ def _load_latest_snapshot(
 def _load_occupancy_history(
     db_path: Path,
     outputs_dir: Path,
+    limit: int,
+    offset: int,
+    parking_lot_id: str,
 ) -> list[dict[str, Any]]:
     if db_path.exists():
-        history = TwinRepository(db_path).get_occupancy_history()
-        if history:
-            return history
+        return TwinRepository(db_path).get_occupancy_history(
+            limit=limit,
+            offset=offset,
+            parking_lot_id=parking_lot_id,
+        )
 
-    return [
+    rows = [
         _history_row_from_state(_load_state_json(path))
         for path in sorted(
             outputs_dir.glob("*_state.json"),
             key=lambda item: item.stat().st_mtime,
         )
     ]
+    end = len(rows) - offset
+    start = max(end - limit, 0)
+    return rows[start : max(end, 0)]
 
 
 def _load_recent_events(
     db_path: Path,
     outputs_dir: Path,
     limit: int,
+    offset: int,
+    parking_lot_id: str,
 ) -> list[dict[str, Any]]:
     if db_path.exists():
-        events = TwinRepository(db_path).get_recent_events(limit)
-        if events:
-            return events
+        return TwinRepository(db_path).get_recent_events(
+            limit=limit,
+            offset=offset,
+            parking_lot_id=parking_lot_id,
+        )
 
     latest_state_path = _find_latest_state_file(outputs_dir)
     if latest_state_path is None:
@@ -272,7 +316,7 @@ def _load_recent_events(
         }
         for spot in state["spots"]
     ]
-    return rows[:limit]
+    return rows[offset : offset + limit]
 
 
 def _load_state_json(path: Path) -> dict[str, Any]:

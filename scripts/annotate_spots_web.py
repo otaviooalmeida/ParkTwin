@@ -5,7 +5,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-
 HTML_PAGE = """
 <!doctype html>
 <html lang="en">

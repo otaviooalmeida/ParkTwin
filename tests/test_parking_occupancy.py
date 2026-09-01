@@ -23,9 +23,7 @@ def test_assign_occupancy_marks_spot_as_occupied_when_vehicle_center_is_inside()
 
 def test_assign_occupancy_marks_spot_as_occupied_when_overlap_reaches_threshold():
     spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
-    detections = [
-        VehicleDetection(bbox=[50, 50, 130, 130], class_name="car", confidence=0.8)
-    ]
+    detections = [VehicleDetection(bbox=[50, 50, 130, 130], class_name="car", confidence=0.8)]
 
     result = assign_occupancy(spots, detections)
 
@@ -35,9 +33,7 @@ def test_assign_occupancy_marks_spot_as_occupied_when_overlap_reaches_threshold(
 
 def test_assign_occupancy_ignores_small_overlap_below_threshold():
     spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
-    detections = [
-        VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)
-    ]
+    detections = [VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)]
 
     result = assign_occupancy(spots, detections)
 
@@ -47,9 +43,7 @@ def test_assign_occupancy_ignores_small_overlap_below_threshold():
 
 def test_assign_occupancy_accepts_custom_overlap_threshold():
     spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
-    detections = [
-        VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)
-    ]
+    detections = [VehicleDetection(bbox=[90, 90, 150, 150], class_name="car", confidence=0.8)]
 
     result = assign_occupancy(spots, detections, overlap_threshold=0.02)
 
@@ -59,9 +53,7 @@ def test_assign_occupancy_accepts_custom_overlap_threshold():
 
 def test_assign_occupancy_ignores_vehicle_outside_all_spots():
     spots = [ParkingSpot(id="A1", polygon=[[0, 0], [100, 0], [100, 100], [0, 100]])]
-    detections = [
-        VehicleDetection(bbox=[140, 140, 160, 160], class_name="car", confidence=0.9)
-    ]
+    detections = [VehicleDetection(bbox=[140, 140, 160, 160], class_name="car", confidence=0.9)]
 
     result = assign_occupancy(spots, detections)
 

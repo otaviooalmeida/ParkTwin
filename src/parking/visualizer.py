@@ -5,7 +5,6 @@ import numpy as np
 
 from parking.models import ParkingSpot, VehicleDetection
 
-
 STATUS_COLORS = {
     "free": (0, 180, 0),
     "occupied": (0, 0, 220),

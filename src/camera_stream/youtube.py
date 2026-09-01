@@ -5,7 +5,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-
 DEFAULT_YOUTUBE_URL = "https://www.youtube.com/watch?v=EPKWu223XEg"
 DEFAULT_FORMAT_SELECTOR = "best[height<=720]/best[height<=1080]/best"
 

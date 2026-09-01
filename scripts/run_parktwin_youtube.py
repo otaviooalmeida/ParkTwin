@@ -1,9 +1,9 @@
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
 from time import sleep, time
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_PATH = PROJECT_ROOT / "src"
@@ -18,14 +18,12 @@ from camera_stream.youtube import (  # noqa: E402
     save_video_frame,
 )
 from detection.yolo_detector import VehicleDetector  # noqa: E402
-from parking.loader import load_parking_spots  # noqa: E402
-from parking.occupancy import assign_occupancy  # noqa: E402
-from parking.visualizer import save_annotated_image  # noqa: E402
+from parktwin.pipeline import process_parking_image  # noqa: E402
 from twin.repository import TwinRepository  # noqa: E402
-from twin.state_manager import update_twin_state  # noqa: E402
 
 
 def main() -> None:
+    logging.basicConfig(level=os.getenv("PARKTWIN_LOG_LEVEL", "INFO"))
     parser = argparse.ArgumentParser(
         description="Monitor a YouTube live stream and update ParkTwin continuously."
     )
@@ -53,7 +51,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--spots",
-        default=os.getenv("PARKTWIN_SPOTS_PATH", PROJECT_ROOT / "data" / "samples" / "spots_annotated.json"),
+        default=os.getenv(
+            "PARKTWIN_SPOTS_PATH", PROJECT_ROOT / "data" / "samples" / "spots_annotated.json"
+        ),
         help="Path to the parking spots JSON file.",
     )
     parser.add_argument(
@@ -72,6 +72,24 @@ def main() -> None:
         type=float,
         default=float(os.getenv("PARKTWIN_OCCUPANCY_THRESHOLD", "0.1")),
         help="Minimum bbox area ratio inside a spot to mark it occupied. Default: 0.1.",
+    )
+    parser.add_argument(
+        "--uncertain-overlap-threshold",
+        type=float,
+        default=float(os.getenv("PARKTWIN_UNCERTAIN_OVERLAP_THRESHOLD", "0.05")),
+        help="Minimum overlap ratio to mark a spot uncertain. Default: 0.05.",
+    )
+    parser.add_argument(
+        "--change-confirmation-frames",
+        type=int,
+        default=int(os.getenv("PARKTWIN_CHANGE_CONFIRMATION_FRAMES", "2")),
+        help="Consecutive frames required to confirm a status change. Default: 2.",
+    )
+    parser.add_argument(
+        "--retention-snapshots",
+        type=int,
+        default=int(os.getenv("PARKTWIN_RETENTION_SNAPSHOTS", "10000")),
+        help="Maximum snapshots retained per parking lot. Default: 10000.",
     )
     parser.add_argument(
         "--parking-lot-id",
@@ -98,10 +116,8 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     frame_path = output_dir / "latest_frame.jpg"
-    annotated_temp_path = output_dir / ".latest_annotated.tmp.jpg"
     annotated_path = output_dir / "latest_annotated.jpg"
 
-    spots = load_parking_spots(args.spots)
     detector = VehicleDetector(args.model, imgsz=args.imgsz)
     repository = TwinRepository(args.db)
     capture = _open_youtube_capture(args.youtube_url, args.format)
@@ -128,30 +144,20 @@ def main() -> None:
 
             try:
                 save_video_frame(frame, frame_path)
-                detections = detector.detect(frame_path)
-                occupied_spots = assign_occupancy(
-                    spots,
-                    detections,
-                    overlap_threshold=args.occupancy_threshold,
-                )
-
-                previous_state = repository.get_latest_snapshot()
-                state = update_twin_state(
+                result = process_parking_image(
+                    image_path=frame_path,
+                    spots_path=args.spots,
+                    detector=detector,
+                    repository=repository,
                     parking_lot_id=args.parking_lot_id,
-                    current_spot_statuses=occupied_spots,
-                    previous_state=previous_state,
-                )
-                repository.save_snapshot(state)
-                repository.save_spot_events(state)
-
-                save_annotated_image(
-                    frame_path,
-                    occupied_spots,
-                    detections,
-                    annotated_temp_path,
+                    annotated_image_path=annotated_path,
+                    occupancy_threshold=args.occupancy_threshold,
+                    uncertain_overlap_threshold=args.uncertain_overlap_threshold,
+                    change_confirmation_frames=args.change_confirmation_frames,
+                    retention_snapshots=args.retention_snapshots,
                     draw_detections=args.draw_detections,
                 )
-                annotated_temp_path.replace(annotated_path)
+                state = result.state
 
                 processed_frames += 1
                 print(

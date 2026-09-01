@@ -9,11 +9,22 @@ services:
       PARKTWIN_SPOTS_PATH: /app/data/samples/spots_annotated.json
       PARKTWIN_MODEL_PATH: /app/models/yolo11s.pt
       PARKTWIN_CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      PARKTWIN_MAX_UPLOAD_BYTES: ${PARKTWIN_MAX_UPLOAD_BYTES:-15728640}
+      PARKTWIN_OCCUPANCY_THRESHOLD: ${PARKTWIN_OCCUPANCY_THRESHOLD:-0.10}
+      PARKTWIN_UNCERTAIN_OVERLAP_THRESHOLD: ${PARKTWIN_UNCERTAIN_OVERLAP_THRESHOLD:-0.05}
+      PARKTWIN_CHANGE_CONFIRMATION_FRAMES: ${PARKTWIN_CHANGE_CONFIRMATION_FRAMES:-2}
+      PARKTWIN_RETENTION_SNAPSHOTS: ${PARKTWIN_RETENTION_SNAPSHOTS:-10000}
     volumes:
       - ./data:/app/data
       - ./yolo11s.pt:/app/models/yolo11s.pt:ro
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
 
   web:
     build:
@@ -23,7 +34,8 @@ services:
     ports:
       - "8080:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   worker-youtube:
     build: .
@@ -42,6 +54,11 @@ services:
       PARKTWIN_YOUTUBE_URL: ${PARKTWIN_YOUTUBE_URL:-https://www.youtube.com/watch?v=EPKWu223XEg}
       PARKTWIN_INTERVAL_SECONDS: ${PARKTWIN_INTERVAL_SECONDS:-5}
       PARKTWIN_PARKING_LOT_ID: ${PARKTWIN_PARKING_LOT_ID:-youtube-live}
+      PARKTWIN_OCCUPANCY_THRESHOLD: ${PARKTWIN_OCCUPANCY_THRESHOLD:-0.10}
+      PARKTWIN_UNCERTAIN_OVERLAP_THRESHOLD: ${PARKTWIN_UNCERTAIN_OVERLAP_THRESHOLD:-0.05}
+      PARKTWIN_CHANGE_CONFIRMATION_FRAMES: ${PARKTWIN_CHANGE_CONFIRMATION_FRAMES:-2}
+      PARKTWIN_RETENTION_SNAPSHOTS: ${PARKTWIN_RETENTION_SNAPSHOTS:-10000}
+      PARKTWIN_LOG_LEVEL: ${PARKTWIN_LOG_LEVEL:-INFO}
     volumes:
       - ./data:/app/data
       - ./yolo11s.pt:/app/models/yolo11s.pt:ro

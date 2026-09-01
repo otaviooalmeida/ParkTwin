@@ -14,10 +14,9 @@ RUN apt-get update \
         libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
+COPY pyproject.toml README.md requirements.txt ./
 COPY src ./src
+RUN pip install --no-cache-dir -r requirements.txt
 COPY scripts ./scripts
 
 EXPOSE 8000

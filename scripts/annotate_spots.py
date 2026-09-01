@@ -5,7 +5,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-
 WINDOW_NAME = "ParkTwin spot annotator"
 
 
@@ -122,10 +121,7 @@ class SpotAnnotator:
             data = json.load(file)
 
         spots = data["spots"] if isinstance(data, dict) and "spots" in data else data
-        loaded_spots = [
-            {"id": spot["id"], "polygon": spot["polygon"]}
-            for spot in spots
-        ]
+        loaded_spots = [{"id": spot["id"], "polygon": spot["polygon"]} for spot in spots]
         print(f"Anotacoes carregadas: {path} ({len(loaded_spots)} vagas)")
         return loaded_spots
 

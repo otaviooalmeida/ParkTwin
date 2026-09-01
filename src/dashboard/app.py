@@ -7,13 +7,11 @@ from typing import Any
 import streamlit as st
 import streamlit.components.v1 as components
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PATH = PROJECT_ROOT / "src"
 sys.path.insert(0, str(SRC_PATH))
 
 from twin.repository import TwinRepository  # noqa: E402
-
 
 DEFAULT_DB_PATH = Path(os.getenv("PARKTWIN_DB_PATH", PROJECT_ROOT / "data" / "parktwin.db"))
 DEFAULT_OUTPUTS_DIR = Path(os.getenv("PARKTWIN_OUTPUTS_DIR", PROJECT_ROOT / "data" / "outputs"))
@@ -77,9 +75,7 @@ def main() -> None:
 
 def _render_sidebar() -> tuple[Path, Path, int, float | None]:
     st.sidebar.header("Fonte de dados")
-    db_path = Path(
-        st.sidebar.text_input("SQLite DB", value=str(DEFAULT_DB_PATH))
-    )
+    db_path = Path(st.sidebar.text_input("SQLite DB", value=str(DEFAULT_DB_PATH)))
     outputs_dir = Path(
         st.sidebar.text_input("Diretório de outputs", value=str(DEFAULT_OUTPUTS_DIR))
     )
@@ -99,7 +95,9 @@ def _render_sidebar() -> tuple[Path, Path, int, float | None]:
         step=1.0,
         disabled=not auto_refresh,
     )
-    st.sidebar.caption("O dashboard usa SQLite quando há snapshots. Caso contrário, lê os JSONs em data/outputs.")
+    st.sidebar.caption(
+        "O dashboard usa SQLite quando há snapshots. Caso contrário, lê os JSONs em data/outputs."
+    )
     return (
         db_path,
         outputs_dir,

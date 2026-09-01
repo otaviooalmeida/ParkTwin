@@ -1,15 +1,16 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
 
 SpotStatus = Literal["free", "occupied", "uncertain"]
-Point = tuple[float, float]
+Point = tuple[FiniteFloat, FiniteFloat]
 
 
 class ParkingSpotConfig(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     id: str = Field(min_length=1)
-    polygon: list[Point] = Field(min_items=3)
+    polygon: list[Point] = Field(min_length=3)
 
 
 class SpotStateResponse(BaseModel):
@@ -19,6 +20,8 @@ class SpotStateResponse(BaseModel):
     confidence: float | None = None
     occupied_since: str | None = None
     last_changed_at: str | None = None
+    pending_status: SpotStatus | None = None
+    pending_count: int = 0
 
 
 class SnapshotResponse(BaseModel):
@@ -52,6 +55,8 @@ class SpotEventResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok"]
     database_exists: bool
+    model_exists: bool
+    detector_loaded: bool
     latest_image_exists: bool
     base_image_exists: bool
     spots_configured: bool
@@ -71,3 +76,5 @@ class UploadResponse(BaseModel):
 class ProcessImageResponse(BaseModel):
     snapshot: SnapshotResponse
     annotated_image_url: str
+    detection_count: int
+    processing_time_ms: float
