@@ -146,9 +146,9 @@ make check
 O CI valida:
 
 - formatação e lint com Ruff;
-- testes e cobertura mínima de 75%;
+- testes, cobertura mínima de 75% e smoke test com YOLO real;
 - auditoria e build do frontend;
-- Docker Compose e Dockerfiles.
+- configuração do Docker Compose e builds completos das imagens.
 
 ## Avaliação
 

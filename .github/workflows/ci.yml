@@ -9,20 +9,35 @@ permissions:
 
 jobs:
   backend:
+    name: backend
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: ruff format --check src scripts tests
       - run: ruff check src scripts tests
       - run: pytest --cov=src --cov-report=term-missing --cov-fail-under=75
+      - name: Restore YOLO model
+        id: yolo-cache
+        uses: actions/cache@v4
+        with:
+          path: yolo11s.pt
+          key: yolo11s-ultralytics-8.3.191-v1
+      - name: Download YOLO model
+        if: steps.yolo-cache.outputs.cache-hit != 'true'
+        run: python -c "from ultralytics import YOLO; YOLO('yolo11s.pt')"
+      - name: Run real YOLO smoke test
+        run: python scripts/smoke_test_yolo.py --model yolo11s.pt
 
   frontend:
+    name: frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -38,9 +53,26 @@ jobs:
       - run: npm run build
 
   containers:
+    name: containers
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config --quiet
-      - run: docker build --check .
-      - run: docker build --check frontend
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: parktwin-api:ci
+          cache-from: type=gha,scope=parktwin-api
+          cache-to: type=gha,mode=max,scope=parktwin-api
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: false
+          tags: parktwin-web:ci
+          cache-from: type=gha,scope=parktwin-web
+          cache-to: type=gha,mode=max,scope=parktwin-web
